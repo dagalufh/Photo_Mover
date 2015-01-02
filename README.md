@@ -3,11 +3,11 @@ Photo_Mover
 
 Photo Mover for moving photos from a single directory structure to multi level based on date taken.
 
-## Installation:
+### Installation:
 Download the file from here
 Place it anywhere you like and run it.
 
-## Usage:
+### Usage:
 Upon starting the vbs file, you as a user are asked to specify the source where photos are located. This doesn't go into subdirectories at this time. This will come in the future.
 After that, you are asked about the root target directory. When this is supplied, you are given the option to decide how the photos should be arrenged. In a TargetRootDirectory\Year\Month\Day or perhaps only in TargetRootDirectory\Year\Month and skip the day, it's up to you.
 
