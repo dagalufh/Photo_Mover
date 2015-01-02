@@ -1,0 +1,8 @@
+V1.0.0.1
+Modified so that it now goes through subdirectories in source.
+Made cancel on dialogboxes stop the execution.
+
+V1.0.0.0
+Inital Release
+Searches through one directory, top level only for images
+Moves those images to target directory based on date taken
