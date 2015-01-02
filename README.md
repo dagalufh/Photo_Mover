@@ -4,8 +4,7 @@ Photo_Mover
 Photo Mover for moving photos from a single directory structure to multi level based on date taken.
 
 ### Installation:
-Download the file from here
-Place it anywhere you like and run it.
+Download the file from https://github.com/dagalufh/Photo_Mover/releases|releases and place it anywhere you like and run it.
 
 ### Usage:
 Upon starting the vbs file, you as a user are asked to specify the source where photos are located. This doesn't go into subdirectories at this time. This will come in the future.
