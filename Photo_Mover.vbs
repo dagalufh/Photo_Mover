@@ -1,35 +1,42 @@
-SourceFolder = "F:\Testar"
-TargetFolderRoot = "F:\\Testar"
-StartTime = DatePart("yyyy",Now()) & "" & DatePart("m",Now()) & "" & DatePart("d",Now()) & "-" & DatePart("h",Now()) & "" & DatePart("n",Now()) & "" & DatePart("s",Now())
+'#############################################
+'########## Created by Mikael Aspehed (dagalufh) ##########
+'#############################################
+
+
+' Define some defaults, these can be changed but user will get prompted about it when starting script.
+SourceFolder = InputBox("Enter source directory.", "Photo Mover", "C:\Temp")
+TargetFolderRoot = InputBox("Enter target root directory.", "Photo Mover", "C:\Temp")
+TargetFolderAppend = InputBox("Enter target subdirectory: " & vbNewLine & vbNewLine & "Valid keywords are: year, month, day. They will be replaced by date taken for the photo." & vbNewLine & vbNewLine & "Root folder is:  [" & TargetFolderRoot & "]","Photo Mover","\Year\Month\Day")
+LogeFileName = DatePart("yyyy",Now()) & "" & DatePart("m",Now()) & "" & DatePart("d",Now()) & "-" & DatePart("h",Now()) & "" & DatePart("n",Now()) & "" & DatePart("s",Now())
 
 Set objShell = CreateObject ("Shell.Application")
 Set objFolder = objShell.Namespace(SourceFolder)
 Set fso = CreateObject("Scripting.FileSystemObject")
-Set LogFile = fso.OpenTextFile(SourceFolder & "\log-" & StartTime & ".txt", 2, True)
-  
-LogFile.Write "Script started at: " & Now
-Dim DateTaken, Year, Month, Day
+Set LogFile = fso.CreateTextFile(SourceFolder & "\log-" & LogeFileName & ".txt", True, True)
+LogFile.WriteLine Now & " | Script started."  
+
+
 For Each strFileName In objFolder.Items
+	
+	' Check if there is anything in the number 12 of extended properties. This is where DateTaken is stored.
 	if (Len(objFolder.GetDetailsOf(strFileName, 12)) > 0) then
-		'Wscript.Echo objFolder.GetDetailsOf(strFileName, 0) & vbTab & "["  & objFolder.GetDetailsOf(strFileName, 12) & "]"
 		
+		' Remove the time from the field as it's only the date we are interested in.
 		DateTaken = Split(Mid(objFolder.GetDetailsOf(strFileName, 12), 1, InStr(objFolder.GetDetailsOf(strFileName, 12), " ")-1), "-")
-		Year = DateTaken(0)
-		Month = DateTaken(1)
-		Day = DateTaken(2)
-		TargetFolderAppend = "\\" & Year & "\\" & Month & "\\" & Day	
 		
-		'Wscript.Echo Year & " - " & Month & " - " & Day
+		TargetFolderAppend_Temp = replace(TargetFolderAppend, "Year",DateTaken(0),1,-1, 1)
+		TargetFolderAppend_Temp = replace(TargetFolderAppend_Temp, "Month",DateTaken(1),1,-1, 1)
+		TargetFolderAppend_Temp = replace(TargetFolderAppend_Temp, "Day",DateTaken(2),1,-1, 1)
+
+		CreateTargetFolder TargetFolderRoot & TargetFolderAppend_Temp
 		
-		CreateTargetFolder TargetFolderRoot & TargetFolderAppend
-		
-		if (fso.FileExists(TargetFolderRoot & TargetFolderAppend & "\" & strFileName)) then
-			'Wscript.Echo "Photo already exists in folder. [" & TargetFolderRoot & TargetFolderAppend & "\" & strFileName &"]"
+		if (fso.FileExists(TargetFolderRoot & TargetFolderAppend_Temp & "\" & strFileName)) then
+
+			LogFile.WriteLine Now & " | Source: [" & SourceFolder & "\\" & strFileName & "] Target: [" & TargetFolderRoot & TargetFolderAppend_Temp & "\" & strFileName & "] Photo already exists in target." 
 		else
-			' Wscript.Echo "Photo needs to be moved to the folder.["&TargetFolderRoot & TargetFolderAppend & "\" & strFileName &"]"
-			
-			'Wscript.Echo SourceFolder & "\\" & strFileName & "," & TargetFolderRoot & TargetFolderAppend & "\\" 
-			fso.MoveFile SourceFolder & "\\" & strFileName, TargetFolderRoot & TargetFolderAppend & "\\"
+		
+			LogFile.WriteLine Now & " | Source: [" & SourceFolder & "\\" & strFileName & "] Target: [" & TargetFolderRoot & TargetFolderAppend_Temp & "\" & strFileName & "] Moving source to target." 
+			fso.MoveFile SourceFolder & "\\" & strFileName, TargetFolderRoot & TargetFolderAppend_Temp & "\\"
 			
 		end if
 		
@@ -37,15 +44,11 @@ For Each strFileName In objFolder.Items
 Next
 
 Sub CreateTargetFolder (path)
-	
-	If (fso.FolderExists(path)) Then
-		'Wscript.Echo "Folder already exists! ["& path &"]"
-	else
-		'Wscript.Echo "Folder does not exists! ["& path &"]"
+	If Not (fso.FolderExists(path)) Then
 		CreateTargetFolder fso.GetParentFolderName(path)
+		LogFile.WriteLine Now & " | Creating Folder: [" & path & "]"
 		fso.CreateFolder(path)
 	end if
-	
 End Sub
-
-LogFile.Write "Script ended at: " & Now
+LogFile.WriteLine Now & " | Script ended."
+WScript.Echo "Complete. See logfile for more information: " & SourceFolder & "\log-" & LogeFileName & ".txt"
