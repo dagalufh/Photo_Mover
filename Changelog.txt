@@ -1,3 +1,8 @@
+V1.0.0.2
+Asks the user for the paths
+Verifies the paths, that the source exists and that the target drive is valid.
+
+
 V1.0.0.1
 Modified so that it now goes through subdirectories in source.
 Made cancel on dialogboxes stop the execution.
