@@ -1,7 +1,7 @@
 '################################################
 '########## Created by Mikael Aspehed (dagalufh) 		##########
 '########## https://github.com/dagalufh/Photo_Mover  	##########
-'########## Current version: 1.0.0.3 								##########
+'########## Current version: 1.0.0.4 								##########
 '################################################
 
 ' Define the global objects needed
@@ -53,9 +53,9 @@ Sub SourceDirectory (path)
 		if fso.FolderExists(path & "\" & strFileName) then
 			SourceDirectory  path & "\" & strFileName
 		else
-		
+			
 			' Check if there is anything in the number 12 of extended properties. This is where DateTaken is stored.
-			if ( (Len(objFolder.GetDetailsOf(strFileName, 12)) > 0) and (objFolder.GetDetailsOf(strFileName, 2) = "JPG File") ) then
+			if ( (Len(objFolder.GetDetailsOf(strFileName, 12)) > 0) and (InStr(objFolder.GetDetailsOf(strFileName, 2), "JPG") > 0) ) then
 				
 				' Remove the time from the field as it's only the date we are interested in.
 				DateTaken = Split(Mid(objFolder.GetDetailsOf(strFileName, 12), 1, InStr(objFolder.GetDetailsOf(strFileName, 12), " ")-1), "-")

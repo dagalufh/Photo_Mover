@@ -1,3 +1,6 @@
+V1.0.0.4
+Resolved an issue with identifying image type (JPEG)
+
 V1.0.0.3
 Added more logging
 Added handling of errors
