@@ -1,7 +1,7 @@
 '################################################
 '########## Created by Mikael Aspehed (dagalufh) 		##########
 '########## https://github.com/dagalufh/Photo_Mover  	##########
-'########## Current version: 1.0.0.2 								##########
+'########## Current version: 1.0.0.3 								##########
 '################################################
 
 ' Define the global objects needed
@@ -9,6 +9,12 @@ Set objShell = CreateObject ("Shell.Application")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 ' Define some defaults, these can be changed but user will get prompted about it when starting script.
+Log_Successful_Move = array("")
+Log_Successful_CreateFolder = array("")
+Log_Failed_Move = array("")
+Log_Failed_CreateFolder = array("")
+Log_Ignored_Files = array("")
+
 ' Set some defaults for the source
 SourceFolder_Valid = false
 SourceFolder_ErrorMessage = ""
@@ -28,7 +34,7 @@ RequestInputTarget
 ' Define the name of the log and create it.
 LogeFileName = DatePart("yyyy",Now()) & "" & DatePart("m",Now()) & "" & DatePart("d",Now()) & "-" & DatePart("h",Now()) & "" & DatePart("n",Now()) & "" & DatePart("s",Now())
 Set LogFile = fso.CreateTextFile(SourceFolder & "\log-" & LogeFileName & ".txt", True, True)
-LogFile.WriteLine Now & " | Script started."  
+LogFile.WriteLine "Script was started at " & Now  
 
 ' Confirm start
 RequestUserConfirmation
@@ -40,6 +46,9 @@ SourceDirectory SourceFolder
 Sub SourceDirectory (path)
 	Set objFolder = objShell.Namespace(path)
 	For Each strFileName In objFolder.Items
+		' Defaults
+		PreviouslyFailedCreating = False
+		
 		' Check if it is a folder, if so, call the SourceDirectory again to search that subfolder.
 		if fso.FolderExists(path & "\" & strFileName) then
 			SourceDirectory  path & "\" & strFileName
@@ -56,20 +65,55 @@ Sub SourceDirectory (path)
 				TargetFolder_Temp = replace(TargetFolder_Temp, "Month",DateTaken(1),1,-1, 1)
 				TargetFolder_Temp = replace(TargetFolder_Temp, "Day",DateTaken(2),1,-1, 1)
 				
-				' Check if the target needs to be created
-				CreateTargetFolder TargetFolder_Temp
+				' Check if current path has failed previously
 				
-				if (fso.FileExists(TargetFolder_Temp & "\" & strFileName)) then
+				for each Failed_CreateFolder in Log_Failed_CreateFolder
+					
+					' if the current path to be created or used has failed to be created earlier, no need to try again.
+					if (InStr(Failed_CreateFolder, TargetFolder_Temp)>0) then
+						PreviouslyFailedCreating = True
+					end if
+					
+				next	
+				
+				' If the folder had not previously been failed, we can continue.
+				if (PreviouslyFailedCreating = False) then
+					' Attempt to create the target folder.
+					CreateTargetFolder TargetFolder_Temp
+					
+					if (fso.FolderExists(TargetFolder_Temp)) then
+						if (fso.FileExists(TargetFolder_Temp & "\" & strFileName)) then
 
-					LogFile.WriteLine Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Photo already exists in target." 
-					
+							ReDim Preserve Log_Failed_Move(UBound(Log_Failed_Move)+1)
+							Log_Failed_Move(UBound(Log_Failed_Move)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Photo already exists in target." 
+						else
+							On Error Resume Next
+							' Attempt to move the file.
+							fso.MoveFile path & "\\" & strFileName, TargetFolder_Temp & "\\"	
+							
+							' If there was an error number reported, assume something went wrong.
+							if (Err.Number <> 0) then
+								ReDim Preserve Log_Failed_Move(UBound(Log_Failed_Move)+1)
+								Log_Failed_Move(UBound(Log_Failed_Move)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Move failed with error number: " & err.number & " and description: " & err.description 
+								Err.Clear
+							else
+								ReDim Preserve Log_Successful_Move(UBound(Log_Successful_Move)+1)
+								Log_Successful_Move(UBound(Log_Successful_Move)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "]" 
+							end if
+							
+						end if
+					else
+						ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+						Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Target folder failed to be created."
+					end if
 				else
+					ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+					Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Target folder failed to be created previously."	
+				end if
 				
-					LogFile.WriteLine Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Moving source to target." 
-					fso.MoveFile path & "\\" & strFileName, TargetFolder_Temp & "\\"
-					
-				End if
-				
+			else 
+				ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+				Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Ignored file: [" & path & "\" & strFileName & "] Filetype: [" & objFolder.GetDetailsOf(strFileName, 2) & "] and date taken value of: [" & objFolder.GetDetailsOf(strFileName, 12) & "]"
 			End if
 		End if
 	Next
@@ -79,6 +123,10 @@ End Sub
 Sub CheckInput (InputValue)
 	
 	if IsEmpty(InputValue) or InputValue = "2" then
+		if not IsEmpty(LogFile) then
+			Output_To_LogFile
+		end if
+		
 		WScript.Echo "Aborting and terminating script"
 		WScript.Quit
 	end if
@@ -90,9 +138,22 @@ Sub CreateTargetFolder (path)
 	
 	If Not (fso.FolderExists(path)) Then
 		CreateTargetFolder fso.GetParentFolderName(path)
-		LogFile.WriteLine Now & " | Creating Folder: [" & path & "]"
+		
+		On Error Resume Next
+		' Attempt to create the folder
 		fso.CreateFolder(path)
+		
+		' If there was an error number reported, assume something went wrong.
+		if (Err.Number <> 0) then
+			ReDim Preserve Log_Failed_CreateFolder(UBound(Log_Failed_CreateFolder)+1)
+			Log_Failed_CreateFolder(UBound(Log_Failed_CreateFolder)) = Now & " | Failed creating folder: [" & path & "] with error number: " & err.number & " and description: " & err.description 
+			Err.Clear
+		else
+			ReDim Preserve Log_Successful_CreateFolder(UBound(Log_Successful_CreateFolder)+1)
+			Log_Successful_CreateFolder(UBound(Log_Successful_CreateFolder)) = Now & " | Created folder: [" & path & "]"
+		end if
 	end if
+	
 	
 End Sub
 
@@ -122,7 +183,7 @@ Sub RequestInputTarget
 		TargetFolder = InputBox("Enter target directory."& vbNewLine & vbNewLine & "Valid keywords are: year, month, day. They will be replaced by date taken for the photo. Example for photo taken 2014-10-25 will be: " & vbNewLine & TargetFolder_Temp & TargetFolder_ErrorMessage, "Photo Mover - Target Folder", TargetFolder_DefaultSource)
 		CheckInput TargetFolder	
 
-		'Check that the drive letter entered by the user is valid
+		'Check that the drive letter entered by the user is valid and exists
 		if fso.FolderExists(mid(TargetFolder,1,InStr(TargetFolder, "\"))) then
 			TargetFolder_Valid = true
 		else
@@ -141,6 +202,58 @@ Sub RequestUserConfirmation
 
 End Sub
 
+Sub Output_To_LogFile
+	
+	' First, output some statistics
+	LogFile.WriteLine "Statistics:"
+	LogFile.WriteLine "Successful Moves: " & UBound(Log_Successful_Move)
+	LogFile.WriteLine "Successful Creation of folders: " & UBound(Log_Successful_CreateFolder)
+	LogFile.WriteLine "Failed Moves: " & UBound(Log_Failed_Move)
+	LogFile.WriteLine "Failed Creation of folders: " & UBound(Log_Failed_CreateFolder)
+	LogFile.WriteLine "Ignored Files: " & UBound(Log_Ignored_Files)
+	LogFile.WriteLine ""
+	
+	LogFile.WriteLine "----------------------------------------------------------------------------"
+	LogFile.WriteLine "Successful Moves:"
+	for each Successful_Moves in Log_Successful_Move
+		' Output successful moves.
+			LogFile.WriteLine Successful_Moves
+	next
+	
+	LogFile.WriteLine "----------------------------------------------------------------------------"
+	LogFile.WriteLine "Successful Creation of folders:"
+	for each Successful_CreateFolder in Log_Successful_CreateFolder
+		' Output successful creations of folders.
+		LogFile.WriteLine Successful_CreateFolder
+	next
+
+	LogFile.WriteLine "----------------------------------------------------------------------------"
+	LogFile.WriteLine "Failed Moves:"
+	for each Failed_Moves in Log_Failed_Move
+		' Output failed moves.
+		LogFile.WriteLine Failed_Moves
+	next
+
+	LogFile.WriteLine "----------------------------------------------------------------------------"
+	LogFile.WriteLine "Failed Creation of folders:"
+	for each Failed_CreateFolder in Log_Failed_CreateFolder
+		' Output failed creations of folders.
+		LogFile.WriteLine Failed_CreateFolder
+	next	
+
+	LogFile.WriteLine "----------------------------------------------------------------------------"
+	LogFile.WriteLine "Ignored Files:"
+	for each Ignored_Files in Log_Ignored_Files
+		' Output ignored files.
+		LogFile.WriteLine Ignored_Files
+	next	
+	LogFile.WriteLine "----------------------------------------------------------------------------"
+	LogFile.WriteLine ""
+	LogFile.WriteLine "Script was completed at " & Now 
+End Sub
+
+' Flush out the logs
+Output_To_LogFile
+
 ' Notify the user that we reached the end.
-LogFile.WriteLine Now & " | Script ended."
 WScript.Echo "Complete. See logfile for more information: " & SourceFolder & "\log-" & LogeFileName & ".txt"
