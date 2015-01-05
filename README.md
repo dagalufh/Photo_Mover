@@ -3,6 +3,9 @@ Photo_Mover
 
 Photo Mover for moving photos from a single directory structure to multi level based on date taken.
 
+### Requirements
+This script requires you to run a Windows operating system.
+
 ### Installation:
 Download the file from https://github.com/dagalufh/Photo_Mover/releases and place it anywhere you like and run it.
 
