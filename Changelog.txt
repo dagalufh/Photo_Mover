@@ -1,3 +1,6 @@
+V1.0.0.5
+Resolved an issue where new folders created based on keywords had an non-printable character in front, a question mark.
+
 V1.0.0.4
 Resolved an issue with identifying image type (JPEG)
 

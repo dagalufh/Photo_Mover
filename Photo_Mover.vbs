@@ -1,7 +1,7 @@
 '################################################
 '########## Created by Mikael Aspehed (dagalufh) 		##########
 '########## https://github.com/dagalufh/Photo_Mover  	##########
-'########## Current version: 1.0.0.4 								##########
+'########## Current version: 1.0.0.5 								##########
 '################################################
 
 ' Define the global objects needed
@@ -61,12 +61,12 @@ Sub SourceDirectory (path)
 				DateTaken = Split(Mid(objFolder.GetDetailsOf(strFileName, 12), 1, InStr(objFolder.GetDetailsOf(strFileName, 12), " ")-1), "-")
 				
 				' Replace the keywords in the target path with the dates from the current photo
-				TargetFolder_Temp = replace(TargetFolder, "Year",DateTaken(0),1,-1, 1)
-				TargetFolder_Temp = replace(TargetFolder_Temp, "Month",DateTaken(1),1,-1, 1)
-				TargetFolder_Temp = replace(TargetFolder_Temp, "Day",DateTaken(2),1,-1, 1)
+				TargetFolder_Temp = replace(TargetFolder, "Year",Right(DateTaken(0),Len(DateTaken(0))-1),1,-1, 1)
+				TargetFolder_Temp = replace(TargetFolder_Temp, "Month",Right(DateTaken(1),Len(DateTaken(1))-1),1,-1, 1)
+				TargetFolder_Temp = replace(TargetFolder_Temp, "Day",Right(DateTaken(2),Len(DateTaken(2))-1),1,-1, 1)
 				
-				' Check if current path has failed previously
 				
+				' Check if current path has failed previously				
 				for each Failed_CreateFolder in Log_Failed_CreateFolder
 					
 					' if the current path to be created or used has failed to be created earlier, no need to try again.
