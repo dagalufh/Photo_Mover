@@ -1,3 +1,7 @@
+V1.0.0.6
+Resolved an issue with identifying image type. Previous only checked for JPG file type, but now also checks for "JPEG" text in file type.
+Modified the name of the logfile to be easier to read.
+
 V1.0.0.5
 Resolved an issue where new folders created based on keywords had an non-printable character in front, a question mark.
 

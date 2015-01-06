@@ -1,7 +1,7 @@
 '################################################
 '########## Created by Mikael Aspehed (dagalufh) 		##########
 '########## https://github.com/dagalufh/Photo_Mover  	##########
-'########## Current version: 1.0.0.5 								##########
+'########## Current version: 1.0.0.6 								##########
 '################################################
 
 ' Define the global objects needed
@@ -32,7 +32,7 @@ RequestInputSource
 RequestInputTarget
 
 ' Define the name of the log and create it.
-LogeFileName = DatePart("yyyy",Now()) & "" & DatePart("m",Now()) & "" & DatePart("d",Now()) & "-" & DatePart("h",Now()) & "" & DatePart("n",Now()) & "" & DatePart("s",Now())
+LogeFileName = DatePart("yyyy",Now()) & "" & Right(String(1,"0") & DatePart("m",Now()), 2) & "" & Right(String(1,"0") & DatePart("d",Now()),2) & "-" & Right(String(1,"0") & DatePart("h",Now()),2) & "" & Right(String(1,"0") & DatePart("n",Now()),2) & "" & Right(String(1,"0") & DatePart("s",Now()),2)
 Set LogFile = fso.CreateTextFile(SourceFolder & "\log-" & LogeFileName & ".txt", True, True)
 LogFile.WriteLine "Script was started at " & Now  
 
@@ -55,7 +55,7 @@ Sub SourceDirectory (path)
 		else
 			
 			' Check if there is anything in the number 12 of extended properties. This is where DateTaken is stored.
-			if ( (Len(objFolder.GetDetailsOf(strFileName, 12)) > 0) and (InStr(objFolder.GetDetailsOf(strFileName, 2), "JPG") > 0) ) then
+			if ( (Len(objFolder.GetDetailsOf(strFileName, 12)) > 0) and ( (InStr(objFolder.GetDetailsOf(strFileName, 2), "JPEG") > 0) or (InStr(objFolder.GetDetailsOf(strFileName, 2), "JPG") > 0) ) ) then
 				
 				' Remove the time from the field as it's only the date we are interested in.
 				DateTaken = Split(Mid(objFolder.GetDetailsOf(strFileName, 12), 1, InStr(objFolder.GetDetailsOf(strFileName, 12), " ")-1), "-")
