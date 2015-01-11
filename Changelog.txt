@@ -1,3 +1,6 @@
+V1.0.0.7
+Fixed issue #3 that could cause it to go into a loop. This was a check, making sure target is not within source.
+
 V1.0.0.6
 Resolved an issue with identifying image type. Previous only checked for JPG file type, but now also checks for "JPEG" text in file type.
 Modified the name of the logfile to be easier to read.

@@ -1,7 +1,7 @@
 '################################################
 '########## Created by Mikael Aspehed (dagalufh) 		##########
 '########## https://github.com/dagalufh/Photo_Mover  	##########
-'########## Current version: 1.0.0.6 								##########
+'########## Current version: 1.0.0.7 								##########
 '################################################
 
 ' Define the global objects needed
@@ -189,7 +189,18 @@ Sub RequestInputTarget
 		else
 			TargetFolder_ErrorMessage = vbNewLine & vbNewLine & "Error: The drive (" & mid(TargetFolder,1,3) & ") does not exist in the path you entered. Please select a drive that's available."
 			TargetFolder_DefaultSource = TargetFolder
+			TargetFolder_Valid = false
 		end if
+		
+		'Check that the target path does not contain the source path. As this will cause a loop.
+		if (InStr(1,TargetFolder,SourceFolder,1) > 0) then
+			TargetFolder_ErrorMessage = vbNewLine & vbNewLine & "Error: The target (" & TargetFolder & ") can't contain the same path as the source ( " & SourceFolder & ")."
+			TargetFolder_DefaultSource = TargetFolder
+			TargetFolder_Valid = false
+		else
+			TargetFolder_Valid = true
+		end if
+		
 	loop
 
 End Sub
