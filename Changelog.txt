@@ -1,3 +1,12 @@
+V1.0.0.8-HTA
+First release of this variant.
+This now supports copy of file alongside the move function.
+Better display of what is happening to the user. Offers an easier to use interface.
+Allows the user to browse for the source and target.
+
+V1.0.0.8
+Fixed a semantic error with verifying source vs target folder.
+
 V1.0.0.7
 Fixed issue #3 that could cause it to go into a loop. This was a check, making sure target is not within source.
 

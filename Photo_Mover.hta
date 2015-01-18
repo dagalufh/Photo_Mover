@@ -1,0 +1,466 @@
+<html>
+<head>
+<title>Photo Mover</title>
+<HTA:APPLICATION 
+     APPLICATIONNAME="Photo Mover"
+     SCROLL="no"
+     SINGLEINSTANCE="yes"
+     WINDOWSTATE="normal">
+	 DISPLAYSTATUSBAR = "yes"
+</head>
+<script language="VBScript">
+	'################################################
+	'########## Created by Mikael Aspehed (dagalufh) 		##########
+	'########## https://github.com/dagalufh/Photo_Mover  	##########
+	'########## Current version: 1.0.0.8-HTA 								##########
+	'################################################
+
+	' Define the global objects needed
+	Dim LogFile, objShell, fso, Sleep_Interval, objShell_wscript, Action
+	Set objShell = CreateObject ("Shell.Application")
+	Set objShell_wscript= CreateObject("WScript.Shell")
+	Set fso = CreateObject("Scripting.FileSystemObject")
+
+
+	' Define some defaults, these can be changed but user will get prompted about it when starting script.
+	Log_Successful_Copy = array("")
+	Log_Successful_Move = array("")
+	Log_Successful_CreateFolder = array("")
+	Log_Failed_Copy = array("")
+	Log_Failed_Move = array("")
+	Log_Failed_CreateFolder = array("")
+	Log_Ignored_Files = array("")
+	Sleep_Interval = 5 ' Number of file inbetween each sleep
+	Action = "Move files"
+
+	' Set some defaults for the source
+	SourceFolder_Valid = false
+	SourceFolder_ErrorMessage = ""
+	SourceFolder_DefaultSource = "C:\"
+	SourceFolder = ""
+
+	' Set some defaults for the target
+	TargetFolder_Valid = false
+	TargetFolder_ErrorMessage = ""
+	TargetFolder_DefaultSource = "C:\Photos\Year\Month\Day"
+	TargetFolder = ""
+
+	' Define the name of the log and create it.
+	LogeFileName = ""
+
+
+
+	' This is exactly the same as the non-hta version except for the call for RefreshStatistics
+	Sub SourceDirectory (path)
+		Set objFolder = objShell.Namespace(path)
+		if objFolder is nothing Then
+			MsgBox "Error!! " & path
+		End If
+		
+		Sleep_Interval_Counter = 0
+		For Each strFileName In objFolder.Items
+			Sleep_Interval_Counter = Sleep_Interval_Counter +1 
+			
+			' Make sure we only call the sleepy function on the defined intervall of files.
+			if (Sleep_Interval_Counter = Sleep_Interval) Then
+				Sleep_Interval_Counter = 0
+				sleepy
+			End If
+			
+			' Defaults
+			PreviouslyFailedCreating = False
+			RefreshStatistics
+			
+			' Check if it is a folder, if so, call the SourceDirectory again to search that subfolder.
+			if fso.FolderExists(path & "\" & strFileName) then
+				SourceDirectory  path & "\" & strFileName
+			else
+				
+				' Check if there is anything in the number 12 of extended properties. This is where DateTaken is stored.
+				if ( (Len(objFolder.GetDetailsOf(strFileName, 12)) > 0) and ( (InStr(objFolder.GetDetailsOf(strFileName, 2), "JPEG") > 0) or (InStr(objFolder.GetDetailsOf(strFileName, 2), "JPG") > 0) ) ) then
+					
+					' Remove the time from the field as it's only the date we are interested in.
+					DateTaken = Split(Mid(objFolder.GetDetailsOf(strFileName, 12), 1, InStr(objFolder.GetDetailsOf(strFileName, 12), " ")-1), "-")
+					
+					' Replace the keywords in the target path with the dates from the current photo
+					TargetFolder_Temp = replace(TargetFolder, "Year",Right(DateTaken(0),Len(DateTaken(0))-1),1,-1, 1)
+					TargetFolder_Temp = replace(TargetFolder_Temp, "Month",Right(DateTaken(1),Len(DateTaken(1))-1),1,-1, 1)
+					TargetFolder_Temp = replace(TargetFolder_Temp, "Day",Right(DateTaken(2),Len(DateTaken(2))-1),1,-1, 1)
+					
+					
+					' Check if current path has failed previously				
+					for each Failed_CreateFolder in Log_Failed_CreateFolder
+						
+						' if the current path to be created or used has failed to be created earlier, no need to try again.
+						if (InStr(Failed_CreateFolder, TargetFolder_Temp)>0) then
+							PreviouslyFailedCreating = True
+						end if	
+					next	
+			
+					' If the folder had not previously been failed, we can continue.
+					If (PreviouslyFailedCreating = False) Then
+						' Attempt to create the target folder.
+						CreateTargetFolder TargetFolder_Temp
+						
+						If (fso.FolderExists(TargetFolder_Temp)) Then
+							If (fso.FileExists(TargetFolder_Temp & "\" & strFileName)) Then
+
+								ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+								Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Photo already exists in target." 
+							Else
+								On Error Resume Next
+								' Check what action to perform
+								If (Action = "Move files") Then
+								
+									' Attempt to move the file.
+									fso.MoveFile path & "\\" & strFileName, TargetFolder_Temp & "\\"	
+									
+									' If there was an error number reported, assume something went wrong.
+									If (Err.Number <> 0) Then
+										ReDim Preserve Log_Failed_Move(UBound(Log_Failed_Move)+1)
+										Log_Failed_Move(UBound(Log_Failed_Move)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Move failed with error number: " & err.number & " and description: " & err.description 
+										Err.Clear
+									Else
+											ReDim Preserve Log_Successful_Move(UBound(Log_Successful_Move)+1)
+											Log_Successful_Move(UBound(Log_Successful_Move)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "]" 
+									End If
+									
+								ElseIf (Action = "Copy files") Then
+									' Attempt to copy the file.
+									fso.CopyFile path & "\\" & strFileName, TargetFolder_Temp & "\\"	
+									
+									' If there was an error number reported, assume something went wrong.
+									If (Err.Number <> 0) Then
+										ReDim Preserve Log_Failed_Copy(UBound(Log_Failed_Copy)+1)
+										Log_Failed_Copy(UBound(Log_Failed_Copy)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Copy failed with error number: " & err.number & " and description: " & err.description 
+										Err.Clear
+									Else
+											ReDim Preserve Log_Successful_Copy(UBound(Log_Successful_Copy)+1)
+											Log_Successful_Copy(UBound(Log_Successful_Copy)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "]" 
+									End If
+								End If
+							End If
+						Else
+								ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+								Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Target folder failed to be created."
+							End If
+						Else
+							ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+							Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Source: [" & path & "\\" & strFileName & "] Target: [" & TargetFolder_Temp & "\" & strFileName & "] Target folder failed to be created previously."	
+						End If
+						
+				Else 
+					ReDim Preserve Log_Ignored_Files(UBound(Log_Ignored_Files)+1)
+					Log_Ignored_Files(UBound(Log_Ignored_Files)) = Now & " | Ignored file: [" & path & "\" & strFileName & "] Filetype: [" & objFolder.GetDetailsOf(strFileName, 2) & "] and date taken value of: [" & objFolder.GetDetailsOf(strFileName, 12) & "]"
+				End if
+			End if				
+		Next
+	End Sub
+
+	' Creates the target folders if needed
+	Sub CreateTargetFolder (path)
+		
+		If Not (fso.FolderExists(path)) Then
+			CreateTargetFolder fso.GetParentFolderName(path)
+			
+			On Error Resume Next
+			' Attempt to create the folder
+			fso.CreateFolder(path)
+			
+			' If there was an error number reported, assume something went wrong.
+			if (Err.Number <> 0) then
+				ReDim Preserve Log_Failed_CreateFolder(UBound(Log_Failed_CreateFolder)+1)
+				Log_Failed_CreateFolder(UBound(Log_Failed_CreateFolder)) = Now & " | Failed creating folder: [" & path & "] with error number: " & err.number & " and description: " & err.description 
+				Err.Clear
+			else
+				ReDim Preserve Log_Successful_CreateFolder(UBound(Log_Successful_CreateFolder)+1)
+				Log_Successful_CreateFolder(UBound(Log_Successful_CreateFolder)) = Now & " | Created folder: [" & path & "]"
+			end if
+		end if
+		
+	End Sub
+
+	Sub BrowseFolder (Folder_Type)
+		' Allows the user to browse for a folder instead of having to type it.
+		Set SelectedFolder = objShell.BrowseForFolder(0,"Select Folder", 0,SourceFolder_DefaultSource)
+		
+		if not SelectedFolder is nothing then
+			' Get the folders path
+			Set FolderItem = SelectedFolder.Self
+				
+			' Update the correct input tag with the selected path.
+			if (Folder_Type="Source") then
+				Input_Source.Value = FolderItem.Path & "\"
+			end if
+			
+			if (Folder_Type="Target") then
+				Input_Target.Value = FolderItem.Path & "\"
+			end if
+		End if
+	End Sub
+
+	' This function is borrowed from Stackoverflow (http://stackoverflow.com/a/19191005/4286604) and author langstrom
+	' This is used to interupt the script execution to allow the hta to perform output.
+	Sub sleepy
+		strCmd = "%COMSPEC% /c"
+		objShell_wscript.Run strCmd,0
+	End Sub 
+
+	' This is for refreshing the displayed statistics
+	Sub RefreshStatistics
+		Successful_Moves_span.innerHTML = UBound(Log_Successful_Move)
+		Successful_Copy_span.innerHTML = UBound(Log_Successful_Copy)
+		Successful_Folders_span.innerHTML = UBound(Log_Successful_CreateFolder)
+		Failed_Moves_span.innerHTML = UBound(Log_Failed_Move)
+		Failed_Copy_span.innerHTML = UBound(Log_Failed_Copy)
+		Failed_Folders_span.innerHTML = UBound(Log_Failed_CreateFolder)
+		Ignored_Files_span.innerHTML = UBound(Log_Ignored_Files)
+	End Sub
+
+	' Flushes out everything from the log to the files.
+	Sub Output_To_LogFile
+		
+		' First, output some statistics
+		LogFile.WriteLine "Statistics:"
+		LogFile.WriteLine "Successful Moves: " & UBound(Log_Successful_Move)
+		LogFile.WriteLine "Successful Copy: " & UBound(Log_Successful_Copy)
+		LogFile.WriteLine "Successful Creation of folders: " & UBound(Log_Successful_CreateFolder)
+		LogFile.WriteLine "Failed Moves: " & UBound(Log_Failed_Move)
+		LogFile.WriteLine "Failed Copy: " & UBound(Log_Failed_Copy)
+		LogFile.WriteLine "Failed Creation of folders: " & UBound(Log_Failed_CreateFolder)
+		LogFile.WriteLine "Ignored Files: " & UBound(Log_Ignored_Files)
+		LogFile.WriteLine ""
+		
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Successful Moves:"
+		for each Successful_Moves in Log_Successful_Move
+			' Output successful moves.
+				LogFile.WriteLine Successful_Moves
+		next
+
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Successful Copy:"
+		for each Successful_Copy in Log_Successful_Copy
+			' Output successful copy events.
+				LogFile.WriteLine Successful_Copy
+		next		
+		
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Successful Creation of folders:"
+		for each Successful_CreateFolder in Log_Successful_CreateFolder
+			' Output successful creations of folders.
+			LogFile.WriteLine Successful_CreateFolder
+		next
+
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Failed Moves:"
+		for each Failed_Moves in Log_Failed_Move
+			' Output failed moves.
+			LogFile.WriteLine Failed_Moves
+		next
+
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Failed Copy:"
+		for each Failed_Copy in Log_Failed_Copy
+			' Output failed copy events.
+			LogFile.WriteLine Failed_Copy
+		next
+		
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Failed Creation of folders:"
+		for each Failed_CreateFolder in Log_Failed_CreateFolder
+			' Output failed creations of folders.
+			LogFile.WriteLine Failed_CreateFolder
+		next	
+
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine "Ignored Files:"
+		for each Ignored_Files in Log_Ignored_Files
+			' Output ignored files.
+			LogFile.WriteLine Ignored_Files
+		next	
+		LogFile.WriteLine "----------------------------------------------------------------------------"
+		LogFile.WriteLine ""
+		LogFile.WriteLine "Script was completed at " & Now 
+		LogFile.close()
+	End Sub
+
+	' Verify the options made by the user
+	Sub VerifyAndStart
+		' Define the name of the logfile
+		LogeFileName = DatePart("yyyy",Now()) & "" & Right(String(1,"0") & DatePart("m",Now()), 2) & "" & Right(String(1,"0") & DatePart("d",Now()),2) & "-" & Right(String(1,"0") & DatePart("h",Now()),2) & "" & Right(String(1,"0") & DatePart("n",Now()),2) & "" & Right(String(1,"0") & DatePart("s",Now()),2)
+	
+		' Disable the start button so that the user can't press it twice.
+		Button_Start.Disabled = True
+		
+		' Update status.
+		CurrentStatus.innerHTML = "Waiting for user verification of preferences."
+		
+		' Reset statistics
+		Erase Log_Successful_Copy
+		Erase Log_Successful_Move
+		Erase Log_Successful_CreateFolder
+		Erase Log_Failed_Copy 
+		Erase Log_Failed_Move
+		Erase Log_Failed_CreateFolder
+		Erase Log_Ignored_Files
+		
+		
+		Log_Successful_Copy = array("")
+		Log_Successful_Move = array("")
+		Log_Successful_CreateFolder = array("")
+		Log_Failed_Copy = array("")
+		Log_Failed_Move = array("")
+		Log_Failed_CreateFolder = array("")
+		Log_Ignored_Files = array("")
+	
+	
+		RefreshStatistics
+		
+		' Store the values so they can't be changed.
+		TargetFolder = Input_Target.Value
+		SourceFolder = Input_Source.Value
+		
+		if (Radio_Action(0).Checked) then
+			Action = "Move files"
+		end if
+		
+		if Radio_Action(1).checked then
+			Action = "Copy files"
+		end if
+		
+		' Check that the source folder does not contain mutiple slashes and not one at the end.
+		If Mid(SourceFolder,len(SourceFolder),1) = "\" Then
+			Sourcefolder = Mid(SourceFolder,1,len(SourceFolder)-1)
+		End If
+		
+		' Verify that a valid target folder is selected.
+			TargetFolder_Temp = replace(TargetFolder, "Year","2014",1,-1, 1)
+			TargetFolder_Temp = replace(TargetFolder_Temp, "Month","10",1,-1, 1)
+			TargetFolder_Temp = replace(TargetFolder_Temp, "Day","25",1,-1, 1)
+		
+			'Check that the drive letter entered by the user is valid and exists
+			if fso.FolderExists(mid(TargetFolder,1,InStr(TargetFolder, "\"))) then
+				TargetFolder_Valid = true
+			else
+				MsgBox "Error: The drive (" & mid(TargetFolder,1,3) & ") does not exist in the path you entered. Please select a drive that's available."
+				idle
+				exit sub
+			end if
+			
+			'Check that the target path does not contain the source path. As this will cause a loop.
+			if (InStr(1,TargetFolder,SourceFolder & "\",1) > 0) then
+				MsgBox "Error: The target (" & TargetFolder & ") can't contain the same path as the source ( " & SourceFolder & ")."
+				idle
+				exit sub
+			else
+				TargetFolder_Valid = true
+			end if
+		
+		' Ask the user to confirm previously entered information before continuing.
+		Confirmation = MsgBox("Please verify that these paths are correct:" &_
+		vbNewLine &_
+		vbNewLine &_
+		"Source Path: " & SourceFolder &_
+		vbNewLine &_ 
+		"Target path: " & TargetFolder &_
+		vbNewLine &_
+		"Action to perform: " &  Action &_
+		vbNewLine &_
+		vbNewLine &_
+		"All the photos from the source including subdirectories will be moved to the target folder" &_
+		vbNewLine &_
+		"Depending on the amount of photos this can take some time. A message will popup when done." &_
+		vbNewLine &_
+		vbNewLine &_
+		"Example of how the path will be with a photo taken 2014-10-25: " & TargetFolder_Temp, vbOKCancel, "Photo Mover - Verify Preferences")
+		
+		If Confirmation = 2 Then
+			idle
+			Exit Sub
+		Else
+			Set LogFile = fso.CreateTextFile(SourceFolder & "\log-" & LogeFileName & ".txt", True, True)
+			LogFile.WriteLine "Script was started at " & Now 
+
+			' Call the execution.
+			CurrentStatus.innerHTML = "Working..."
+			SourceDirectory SourceFolder
+					
+			' Flush out the logs
+			Output_To_LogFile
+			RefreshStatistics
+			
+			' When done re-enable the start button. 
+			CurrentStatus.innerHTML = "Complete. <button class='ViewLog' onclick='ViewLog'>Click here to view the log</button>"
+			Button_Start.Disabled = false
+		End If
+		
+	End Sub
+
+	Sub ViewLog
+		objShell_wscript.Run "notepad.exe '" & SourceFolder & "\log-" & LogeFileName & ".txt'"
+	'SourceFolder & "\log-" & LogeFileName & ".txt"
+	End Sub
+
+	' When the script has finished loading, execute this section.
+	Sub Window_onLoad
+		window.resizeTo 590,445
+		Input_Source.Value = SourceFolder_DefaultSource
+		Input_Target.Value = TargetFolder_DefaultSource
+		RefreshStatistics
+		idle	
+
+	End Sub
+
+	' Updated "CurrentStatus" with idle message.
+	Sub idle
+		Button_Start.Disabled = false
+		CurrentStatus.innerHTML = "Not doing anything at this time. "
+	End Sub
+</script>
+
+<style lang="text/css">
+	body { font-family: verdana;}
+	table {width: 100%; font-size: 14px;}
+	tr {padding-bottom: 2px;}
+	
+	.TableTitle {width: 70px;}
+	.TableHeadline {font-weight: bold; border-bottom: 1px solid #000000; font-size: 16px;}
+	.InputBox {width: 400px;}
+	.Note {font-size: 12px; padding-top: 10px;}
+	
+	div {border: 1px solid #000000; padding: 2px; margin-bottom: 5px; width:100%;}
+	.ViewLog {width: 161px; background: none!important; border: none; padding:0!important; font-size: 12px; font-family: verdana; color:#069; text-decoration:underline; cursor:pointer;}
+</style>
+
+<body>
+	<div id="Preferences">
+		<table cellpadding=0 cellspacing=0>
+			<tr><td class="TableHeadline" colspan="2">Preferences</td></tr>
+			<tr><td class="TableTitle">Source: </td><td><input class="InputBox" type="text" name="Input_Source"> <button onclick="BrowseFolder('Source')">Browse</button></td></tr>
+			<tr><td class="TableTitle">Target: </td><td><input class="InputBox" type="text" name="Input_Target"> <button onclick="BrowseFolder('Target')">Browse</button></td></tr>
+			<tr><td class="TableTitle">Action: </td><td><input type="radio" name="Radio_Action" value="Move" checked="checked">Move Files<input type="radio" name="Radio_Action" value="Copy">Copy Files</td></tr>
+			<tr><td class="Note" colspan="2">Keywords in target path that will be overwritten by photo "date taken" property: Year, Month, Day. And required folders will be created automatically.</td></tr>
+			<tr><td colspan=2"><button onClick="VerifyAndStart" name="Button_Start">Verify and start</button></td></tr>
+		</table>
+	</div>
+	<div id="Statistics">
+		<table cellpadding=0 cellspacing=0>
+			<tr><td class="TableHeadline" colspan="2">Statistics</td></tr>
+			<tr><td>Successful Moves:</td><td><span id="Successful_Moves_span"></span></td></tr>
+			<tr><td>Successful Copy:</td><td><span id="Successful_Copy_span"></span></td></tr>
+			<tr><td>Successful Creation of folders:</td><td><span id="Successful_Folders_span"></span></td></tr>
+			<tr><td>Failed Moves:</td><td><span id="Failed_Moves_span"></span></td></tr>
+			<tr><td>Failed Copy:</td><td><span id="Failed_Copy_span"></span></td></tr>
+			<tr><td>Failed Creation of folders:</td><td><span id="Failed_Folders_span"></span></td></tr>
+			<tr><td>Ignored Files:</td><td><span id="Ignored_Files_span"></span></td></tr>
+		</table>
+	</div>
+	<div id="Status">
+		<table cellpadding=0 cellspacing=0">
+			<tr><td class="TableHeadline">Status</td></tr>
+			<tr><td><span id="CurrentStatus"></span></td></tr>
+		</table>
+	</div>
+</body>
+</html>
