@@ -1,3 +1,7 @@
+V1.0.0.9-HTA
+Added control to make sure that the source folder exists before continuing.
+Fixed default path for the folder browser to allow any directory.
+
 V1.0.0.8-HTA
 First release of this variant.
 This now supports copy of file alongside the move function.

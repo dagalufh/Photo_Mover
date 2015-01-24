@@ -12,7 +12,7 @@
 	'################################################
 	'########## Created by Mikael Aspehed (dagalufh) 		##########
 	'########## https://github.com/dagalufh/Photo_Mover  	##########
-	'########## Current version: 1.0.0.8-HTA 								##########
+	'########## Current version: 1.0.0.9-HTA 								##########
 	'################################################
 
 	' Define the global objects needed
@@ -182,7 +182,7 @@
 
 	Sub BrowseFolder (Folder_Type)
 		' Allows the user to browse for a folder instead of having to type it.
-		Set SelectedFolder = objShell.BrowseForFolder(0,"Select Folder", 0,SourceFolder_DefaultSource)
+		Set SelectedFolder = objShell.BrowseForFolder(0,"Select Folder", 0)
 		
 		if not SelectedFolder is nothing then
 			' Get the folders path
@@ -333,6 +333,14 @@
 		If Mid(SourceFolder,len(SourceFolder),1) = "\" Then
 			Sourcefolder = Mid(SourceFolder,1,len(SourceFolder)-1)
 		End If
+		
+		' Check that the source folder exists, otherwise halt.
+		If Not fso.FolderExists(SourceFolder) then
+			MsgBox "Source folder does not exists. Please check the path again."
+			idle
+			Exit Sub
+		End If
+		
 		
 		' Verify that a valid target folder is selected.
 			TargetFolder_Temp = replace(TargetFolder, "Year","2014",1,-1, 1)
