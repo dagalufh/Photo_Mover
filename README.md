@@ -7,11 +7,9 @@ The script now offers to ways of usage, either via VBS file or via HTA file. The
 There are optional keywords (Year, Month, Day) that can be used to organize photos based on the date taken property.
 
 ### Current Version:
-- V1.0.0.8-HTA
- - First release of this variant. (Graphical interface)
- - This now supports copy of file alongside the move function.
- - Better display of what is happening to the user. Offers an easier to use interface.
- - Allows the user to browse for the source and target.
+- V1.0.0.9-HTA
+ - Added control to make sure that the source folder exists before continuing.
+ - Fixed default path for the folder browser to allow any directory.
 
 ### Requirements:
 This script requires you to run a Windows operating system.
